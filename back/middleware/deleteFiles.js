@@ -3,7 +3,7 @@ import path from 'path';
 
 const deleteFiles = (req, res, next) => {
   const __dirname = path.resolve(); // ES6
-  const upload_dir = path.join(__dirname, 'uploads');
+  const upload_dir = path.join(__dirname, 'back', 'uploads');
   console.log('upload_dir', upload_dir);
 
   // Récupérer le nom du fichier XML
