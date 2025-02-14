@@ -3,13 +3,9 @@ import path from 'path';
 
 const deleteFiles = (req, res, next) => {
   const __dirname = path.resolve(); // ES6
-
-  // créer le dossier s'il n'existe pas
-  if (!fs.existsSync(path.join(__dirname, 'uploads'))) {
-    fs.mkdirSync(path.join(__dirname, 'uploads'));
-  }
-
   const upload_dir = path.join(__dirname, 'uploads');
+  console.log('upload_dir', upload_dir);
+
   // Récupérer le nom du fichier XML
   const files = fs.readdirSync(upload_dir);
 

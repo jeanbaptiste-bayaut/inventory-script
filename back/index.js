@@ -4,15 +4,30 @@ import path from 'path';
 import ProcessFile from './controllers/processFile.js';
 import upload from './middleware/multerConfig.js';
 import deleteFiles from './middleware/deleteFiles.js';
+import fs from 'fs';
 
 const app = express();
 const httpServer = createServer(app);
+
+// créer les dossiers uploads et export
+const __dirname = path.resolve(); // ES6
+const upload_dir = path.join(__dirname, 'uploads');
+const export_dir = path.join(__dirname, 'export');
+
+if (!fs.existsSync(upload_dir)) {
+  fs.mkdirSync(upload_dir);
+}
+
+if (!fs.existsSync(export_dir)) {
+  fs.mkdirSync(export_dir);
+}
+
+// Servir les fichiers statiques
 
 app.use('/uploads', express.static('./uploads'));
 app.use('/export', express.static('./export'));
 
 // Servir les fichiers statiques du front-end
-const __dirname = path.resolve(); // ES6
 app.use(express.static(path.join(__dirname, '../front/dist')));
 
 app.get('/files', ProcessFile.displayFiles.bind(ProcessFile));
