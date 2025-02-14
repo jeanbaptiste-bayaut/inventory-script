@@ -5,77 +5,117 @@ import path from 'path';
 
 export default class ProcessFile {
   static async processFile(req, res) {
-    // Créez un nouveau parser
-    const parser = new xml2js.Parser({ explicitArray: false });
+    try {
+      const __dirname = path.resolve();
+      const uploadDir = path.join(__dirname, 'uploads');
 
-    // Récupérer le nom du fichier XML
-    const __dirname = path.resolve(); // ES6
-    const files = fs.readdirSync(path.join(__dirname, 'uploads'));
-
-    const xmlFile = files.find((file) => file.endsWith('.xml'));
-
-    // Lire le fichier XML
-    fs.readFile(`uploads/${xmlFile}`, (err, data) => {
-      if (err) {
-        console.error('Erreur lors de la lecture du fichier XML :', err);
-        return;
+      // Vérifier si le dossier 'uploads' existe
+      if (!fs.existsSync(uploadDir)) {
+        return res
+          .status(400)
+          .json({ error: "Le dossier 'uploads' n'existe pas." });
       }
 
-      // Convertir le XML en objet JavaScript
-      parser.parseString(data, (err, result) => {
-        if (err) {
-          console.error("Erreur lors de l'analyse du XML :", err);
-          return;
-        }
+      // Récupérer les fichiers XML
+      const files = fs.readdirSync(uploadDir);
+      const xmlFile = files.find((file) => file.endsWith('.xml'));
 
-        // Accéder aux coupons
-        const list = result['inventory']['inventory-list']['records']['record'];
-        const eanList = [];
+      // Vérifier s'il y a un fichier XML
+      if (!xmlFile) {
+        return res
+          .status(400)
+          .json({ error: "Aucun fichier XML trouvé dans 'uploads'" });
+      }
 
-        // Gérer le cas où il y a plusieurs ensembles de codes
+      console.log(`🔍 Fichier XML trouvé: ${xmlFile}`);
 
-        list.forEach((record) => {
-          eanList.push({
-            ean: record['$']['product-id'],
-            ats: record.allocation,
+      const parser = new xml2js.Parser({ explicitArray: false });
+      const xmlStream = fs.createReadStream(path.join(uploadDir, xmlFile));
+
+      let xmlData = '';
+
+      xmlStream.on('data', (chunk) => {
+        xmlData += chunk.toString(); // Lire le fichier par morceaux
+      });
+
+      xmlStream.on('end', () => {
+        parser.parseString(xmlData, (err, result) => {
+          if (err) {
+            console.error("❌ Erreur lors de l'analyse du XML :", err);
+            return res
+              .status(500)
+              .json({ error: "Erreur lors de l'analyse du XML." });
+          }
+
+          // Extraire les données
+          const list = result?.inventory?.['inventory-list']?.records?.record;
+          if (!list) {
+            return res
+              .status(400)
+              .json({ error: 'Format XML incorrect ou vide.' });
+          }
+
+          const eanList = list.map((record) => ({
+            ean: record?.['$']?.['product-id'],
+            ats: record?.allocation,
+          }));
+
+          console.log("📊 Nombre d'enregistrements:", eanList.length);
+
+          // Convertir en CSV
+          const fields = ['ean', 'ats'];
+          const json2csvParser = new Parser({ fields });
+          const csv = json2csvParser.parse(eanList);
+
+          // Générer un nom de fichier avec la date actuelle
+          const date = new Date();
+          const formatDate = `${date.getFullYear()}-${String(
+            date.getMonth() + 1
+          ).padStart(2, '0')}-${String(date.getDate()).padStart(
+            2,
+            '0'
+          )}_${String(date.getHours()).padStart(2, '0')}-${String(
+            date.getMinutes()
+          ).padStart(2, '0')}`;
+
+          const exportDir = path.join(__dirname, 'export');
+          if (!fs.existsSync(exportDir))
+            fs.mkdirSync(exportDir, { recursive: true });
+
+          const outPath = path.join(
+            exportDir,
+            `${formatDate}-inventory-export.csv`
+          );
+
+          // Écrire le fichier CSV
+          fs.writeFile(outPath, csv, (err) => {
+            if (err) {
+              console.error(
+                "❌ Erreur lors de l'écriture du fichier CSV :",
+                err
+              );
+              return res
+                .status(500)
+                .json({ error: "Erreur lors de l'écriture du fichier CSV." });
+            }
+
+            console.log(`✅ Fichier CSV créé avec succès: ${outPath}`);
+            res.status(200).json({
+              message: 'Fichier traité avec succès',
+              filePath: outPath,
+            });
           });
         });
-
-        console.log(eanList[0]);
-
-        // //Configuration des champs (colonnes)
-        const fields = ['ean', 'ats'];
-        const json2csvParser = new Parser({ fields });
-        const csv = json2csvParser.parse(eanList);
-
-        const date = new Date(Date.now()); // Convertir le timestamp en objet Date
-        const day = String(date.getDate()).padStart(2, '0'); // Jour (01-31)
-        const month = String(date.getMonth() + 1).padStart(2, '0'); // Mois (01-12)
-        const year = date.getFullYear(); // Année (2024)
-        const hours = String(date.getHours()).padStart(2, '0'); // Heures (00-23)
-        const minutes = String(date.getMinutes()).padStart(2, '0'); // Minutes (00-59)
-        const seconds = String(date.getSeconds()).padStart(2, '0'); // Secondes (00-59)
-
-        const formatDate = `${day}-${month}-${year}-${hours}-${minutes}-${seconds}`;
-
-        const __dirname = path.resolve(); // ES6
-        const outPath = path.join(
-          __dirname,
-          'export',
-          `${formatDate}-inventory-export.csv`
-        );
-
-        // Écrire le fichier CSV
-        fs.writeFile(outPath, csv, (err) => {
-          if (err) {
-            console.error("Erreur lors de l'écriture du fichier CSV :", err);
-            return;
-          }
-          console.log('Le fichier CSV a été créé avec succès !');
-        });
-        res.status(200).json({ message: 'Fichier traité avec succès' });
       });
-    });
+
+      xmlStream.on('error', (err) => {
+        console.error('❌ Erreur de lecture du fichier XML :', err);
+        res.status(500).json({ error: 'Erreur de lecture du fichier XML.' });
+      });
+    } catch (error) {
+      console.error('❌ Erreur inattendue :', error);
+      res.status(500).json({ error: 'Erreur serveur.' });
+    }
   }
 
   static async displayFiles(req, res) {
