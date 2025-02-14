@@ -61,7 +61,8 @@ export default class ProcessFile {
         const __dirname = path.resolve(); // ES6
         const outPath = path.join(
           __dirname,
-          `../back/export/${formatDate}-inventory-export.csv`
+          'export',
+          `${formatDate}-inventory-export.csv`
         );
 
         // Écrire le fichier CSV
@@ -78,10 +79,10 @@ export default class ProcessFile {
   }
 
   static async displayFiles(req, res) {
-    fs.readdir('export', (err, files) => {
-      const __dirname = path.resolve(); // ES6
-      const UPLOADS_DIR = path.join(__dirname, 'export');
+    const __dirname = path.resolve(); // ES6
+    const UPLOADS_DIR = path.join(__dirname, 'export');
 
+    fs.readdir(UPLOADS_DIR, (err, files) => {
       if (err) {
         return res
           .status(500)
