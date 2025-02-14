@@ -10,7 +10,7 @@ export default class ProcessFile {
 
     // Récupérer le nom du fichier XML
     const __dirname = path.resolve(); // ES6
-    const files = fs.readdirSync(path.join(__dirname, 'back', 'uploads'));
+    const files = fs.readdirSync(path.join(__dirname, 'uploads'));
 
     const xmlFile = files.find((file) => file.endsWith('.xml'));
 
@@ -80,7 +80,7 @@ export default class ProcessFile {
   static async displayFiles(req, res) {
     fs.readdir('export', (err, files) => {
       const __dirname = path.resolve(); // ES6
-      const UPLOADS_DIR = path.join(__dirname, 'back', 'export');
+      const UPLOADS_DIR = path.join(__dirname, 'export');
 
       if (err) {
         return res
