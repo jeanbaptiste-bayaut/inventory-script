@@ -1,15 +1,14 @@
 import fs from 'fs';
 
 const deleteFiles = (req, res, next) => {
+  const __dirname = path.resolve(); // ES6
+  const upload_dir = path.join(__dirname, 'uploads');
   // Récupérer le nom du fichier XML
-  const files = fs.readdirSync('uploads');
+  const files = fs.readdirSync(upload_dir);
 
   if (files.length === 0) {
     next();
   }
-
-  const __dirname = path.resolve(); // ES6
-  const upload_dir = path.join(__dirname, 'uploads');
   // supprimer le fichier précédent
   fs.unlink(`${upload_dir}/${files[0]}`, (err) => {
     if (err) {
