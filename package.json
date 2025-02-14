@@ -8,7 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "cd back && node --watch index.js",
     "build": "cd front && vite build",
-    "start": "mkdir -p back/uploads back/export && ENV=prod && cd back && node index.js"
+    "start": "ENV=prod && cd back && node index.js"
   },
   "repository": {
     "type": "git",
