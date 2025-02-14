@@ -8,8 +8,10 @@ const deleteFiles = (req, res, next) => {
     next();
   }
 
+  const __dirname = path.resolve(); // ES6
+  const upload_dir = path.join(__dirname, 'uploads');
   // supprimer le fichier précédent
-  fs.unlink(`uploads/${files[0]}`, (err) => {
+  fs.unlink(`${upload_dir}/${files[0]}`, (err) => {
     if (err) {
       console.error('Erreur lors de la suppression du fichier XML :', err);
       return;
