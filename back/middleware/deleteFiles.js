@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 
 const deleteFiles = (req, res, next) => {
   const __dirname = path.resolve(); // ES6
