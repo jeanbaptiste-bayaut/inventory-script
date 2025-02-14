@@ -40,7 +40,7 @@ function App() {
         onChange={(e) => setXml(e.target.files[0])}
       />
       <button onClick={handleXml}>Process</button>
-      <p>Fichiers d'export</p>
+      <p>Fichiers d&apos;export</p>
       <ul>
         {files.map((file) => (
           <li key={file}>

@@ -9,7 +9,9 @@ export default class ProcessFile {
     const parser = new xml2js.Parser({ explicitArray: false });
 
     // Récupérer le nom du fichier XML
-    const files = fs.readdirSync('uploads');
+    const __dirname = path.resolve(); // ES6
+
+    const files = fs.readdirSync(path.join(__dirname, '../uploads'));
 
     const xmlFile = files.find((file) => file.endsWith('.xml'));
 
@@ -80,9 +82,9 @@ export default class ProcessFile {
   }
 
   static async displayFiles(req, res) {
-    const __dirname = path.resolve(); // ES6
-    const UPLOADS_DIR = path.join(__dirname, '../back/export');
-    fs.readdir(UPLOADS_DIR, (err, files) => {
+    fs.readdir('export', (err, files) => {
+      const __dirname = path.resolve(); // ES6
+      const UPLOADS_DIR = path.join(__dirname, '../export');
       console.log('ici', UPLOADS_DIR, files);
 
       if (err) {
