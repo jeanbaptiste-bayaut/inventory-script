@@ -11,11 +11,16 @@ function App() {
     formData.append('xmlfile', xml);
 
     try {
-      const result = await axios.post('http://localhost:3000/upload', formData);
+      const result = await axios.post(
+        'https://inventory-script.onrender.com/upload',
+        formData
+      );
       console.log('Fichier envoyé', result);
 
       if (result.status === 200) {
-        const response = await axios.get('http://localhost:3000/files');
+        const response = await axios.get(
+          'https://inventory-script.onrender.com/files'
+        );
         console.log('response', response.data);
 
         setFiles(response.data);
@@ -39,7 +44,10 @@ function App() {
       <ul>
         {files.map((file) => (
           <li key={file}>
-            <a href={`http://localhost:3000/export/${file}`} download>
+            <a
+              href={`https://inventory-script.onrender.com/export/${file}`}
+              download
+            >
               {file}
             </a>
           </li>
