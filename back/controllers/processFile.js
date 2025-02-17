@@ -1,5 +1,5 @@
 import fs from 'fs';
-import xml2js from 'xml2js';
+import sax from 'sax';
 import { Parser } from 'json2csv';
 import path from 'path';
 
@@ -29,89 +29,106 @@ export default class ProcessFile {
 
       console.log(`🔍 Fichier XML trouvé: ${xmlFile}`);
 
-      const parser = new xml2js.Parser({ explicitArray: false });
+      const BATCH_SIZE = 10000; // Nombre d'éléments par batch
+      let currentBatch = [];
+      let batchCount = 0;
+      let eanList = [];
+      let currentTag = '';
+      let currentRecord = {};
+      let currentText = '';
+
+      const parser = sax.createStream(true, {});
       const xmlStream = fs.createReadStream(path.join(uploadDir, xmlFile));
 
-      let xmlData = '';
-
-      xmlStream.on('data', (chunk) => {
-        xmlData += chunk.toString(); // Lire le fichier par morceaux
+      parser.on('opentag', (node) => {
+        currentTag = node.name;
+        currentText = '';
+        if (node.name === 'record') {
+          currentRecord = {
+            ean: node.attributes['product-id'],
+          };
+        }
       });
 
-      xmlStream.on('end', () => {
-        parser.parseString(xmlData, (err, result) => {
-          if (err) {
-            console.error("❌ Erreur lors de l'analyse du XML :", err);
-            return res
-              .status(500)
-              .json({ error: "Erreur lors de l'analyse du XML." });
+      parser.on('text', (text) => {
+        currentText += text;
+      });
+
+      parser.on('closetag', (nodeName) => {
+        if (nodeName === 'allocation') {
+          currentRecord.ats = currentText.trim();
+        }
+
+        if (nodeName === 'record') {
+          currentBatch.push(currentRecord);
+
+          if (currentBatch.length >= BATCH_SIZE) {
+            eanList.push(...currentBatch);
+            currentBatch = [];
+            batchCount++;
           }
+        }
+        currentTag = ''; // Réinitialiser le tag courant lorsqu'un tag est fermé
+        currentText = ''; // Réinitialiser le texte courant lorsqu'un tag est fermé
+      });
 
-          // Extraire les données
-          const list = result?.inventory?.['inventory-list']?.records?.record;
-          if (!list) {
-            return res
-              .status(400)
-              .json({ error: 'Format XML incorrect ou vide.' });
-          }
+      parser.on('end', () => {
+        if (currentBatch.length > 0) {
+          eanList.push(...currentBatch);
+        }
+        processBatch(eanList);
 
-          const eanList = list.map((record) => ({
-            ean: record?.['$']?.['product-id'],
-            ats: record?.allocation,
-          }));
-
-          console.log("📊 Nombre d'enregistrements:", eanList.length);
-
-          // Convertir en CSV
-          const fields = ['ean', 'ats'];
-          const json2csvParser = new Parser({ fields });
-          const csv = json2csvParser.parse(eanList);
-
-          // Générer un nom de fichier avec la date actuelle
-          const date = new Date();
-          const formatDate = `${date.getFullYear()}-${String(
-            date.getMonth() + 1
-          ).padStart(2, '0')}-${String(date.getDate()).padStart(
-            2,
-            '0'
-          )}_${String(date.getHours()).padStart(2, '0')}-${String(
-            date.getMinutes()
-          ).padStart(2, '0')}`;
-
-          const exportDir = path.join(__dirname, 'export');
-          if (!fs.existsSync(exportDir))
-            fs.mkdirSync(exportDir, { recursive: true });
-
-          const outPath = path.join(
-            exportDir,
-            `${formatDate}-inventory-export.csv`
-          );
-
-          // Écrire le fichier CSV
-          fs.writeFile(outPath, csv, (err) => {
-            if (err) {
-              console.error(
-                "❌ Erreur lors de l'écriture du fichier CSV :",
-                err
-              );
-              return res
-                .status(500)
-                .json({ error: "Erreur lors de l'écriture du fichier CSV." });
-            }
-
-            console.log(`✅ Fichier CSV créé avec succès: ${outPath}`);
-            res.status(200).json({
-              message: 'Fichier traité avec succès',
-              filePath: outPath,
-            });
-          });
+        console.log(
+          "📊 Nombre total d'enregistrements traités:",
+          batchCount * BATCH_SIZE + eanList.length
+        );
+        res.status(200).json({
+          message: 'Fichier traité avec succès',
         });
       });
 
-      xmlStream.on('error', (err) => {
-        console.error('❌ Erreur de lecture du fichier XML :', err);
-        res.status(500).json({ error: 'Erreur de lecture du fichier XML.' });
+      parser.on('error', (err) => {
+        console.error("❌ Erreur lors de l'analyse du XML :", err);
+        res.status(500).json({ error: "Erreur lors de l'analyse du XML." });
       });
+
+      xmlStream.pipe(parser);
+
+      function processBatch(batch) {
+        // Convertir en CSV
+        const fields = ['ean', 'ats'];
+        const json2csvParser = new Parser({ fields });
+        const csv = json2csvParser.parse(batch);
+
+        // Générer un nom de fichier avec la date actuelle
+        const date = new Date();
+        const formatDate = `${date.getFullYear()}-${String(
+          date.getMonth() + 1
+        ).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}_${String(
+          date.getHours()
+        ).padStart(2, '0')}-${String(date.getMinutes()).padStart(2, '0')}`;
+
+        const exportDir = path.join(__dirname, 'export');
+        if (!fs.existsSync(exportDir))
+          fs.mkdirSync(exportDir, { recursive: true });
+
+        const outPath = path.join(
+          exportDir,
+          `${formatDate}-inventory-export.csv`
+        );
+
+        // Écrire le fichier CSV
+        fs.writeFile(outPath, csv, (err) => {
+          if (err) {
+            console.error("❌ Erreur lors de l'écriture du fichier CSV :", err);
+            return res
+              .status(500)
+              .json({ error: "Erreur lors de l'écriture du fichier CSV." });
+          }
+
+          console.log(`✅ Fichier CSV créé avec succès: ${outPath}`);
+        });
+      }
     } catch (error) {
       console.error('❌ Erreur inattendue :', error);
       res.status(500).json({ error: 'Erreur serveur.' });
