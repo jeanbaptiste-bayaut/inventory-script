@@ -5,12 +5,14 @@ import axios from 'axios';
 function App() {
   const [xml, setXml] = useState(null);
   const [files, setFiles] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleXml = async () => {
     const formData = new FormData();
     formData.append('xmlfile', xml);
 
     try {
+      setIsLoading(true);
       const result = await axios.post(
         'https://inventory-script.onrender.com/upload',
         formData
@@ -24,6 +26,7 @@ function App() {
         console.log('response', response.data);
 
         setFiles(response.data);
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Error uploading file', error);
@@ -41,6 +44,12 @@ function App() {
       />
       <button onClick={handleXml}>Process</button>
       <p>Fichiers d&apos;export</p>
+      {isLoading && (
+        <div className="loading-data">
+          <p>Loading data ...</p>
+          <span className="loader"></span>
+        </div>
+      )}
       <ul>
         {files.map((file) => (
           <li key={file}>
